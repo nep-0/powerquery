@@ -16,15 +16,15 @@ type Queryer interface {
 }
 
 type QueryRequest struct {
-	Username string
-	Password string
-	Cookies  string
-	RoomName string
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Cookies  string `json:"cookies"`
+	RoomName string `json:"room_name"`
 }
 
 type QueryResponse struct {
-	Balance string
-	Power   string
+	Balance string `json:"balance"`
+	Power   string `json:"power"`
 }
 
 type RodQueryer struct {

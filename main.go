@@ -55,16 +55,10 @@ func main() {
 		c.JSON(http.StatusOK, resp)
 	})
 	r.POST("/query", func(c *gin.Context) {
-		username := c.PostForm("username")
-		password := c.PostForm("password")
-		cookies := c.PostForm("cookies")
-		roomName := c.PostForm("roomName")
-
-		req := query.QueryRequest{
-			Username: username,
-			Password: password,
-			Cookies:  cookies,
-			RoomName: roomName,
+		var req query.QueryRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
 
 		resp, err := queryer.DoQuery(req)
