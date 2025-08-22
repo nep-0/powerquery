@@ -57,8 +57,9 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		rq.setCookies(req.Cookies)
 	}
 
-	page := rq.browser.MustPage("https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record").MustWaitLoad()
+	page := rq.browser.MustPage("https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record")
 	defer page.Close()
+	page.MustWaitDOMStable()
 
 	if page.MustInfo().Title == "Unified identity authentication platform" {
 		// username
@@ -71,11 +72,13 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		page.MustElement("#loginViewDiv > div:nth-child(1) > form:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > a:nth-child(1)").MustClick()
 
 		// Wait for navigation
-		page.MustWaitLoad()
+		page.MustWaitNavigation()
 	}
 
+	page.MustWaitDOMStable()
 	if page.MustInfo().Title != "清水河校区寝室电费充值" {
-		return QueryResponse{}, fmt.Errorf("failed to log in or navigate to the correct page")
+		page.MustScreenshot("debug.png")
+		return QueryResponse{}, fmt.Errorf("failed to log in or navigate to the correct page: %s", page.MustInfo().Title)
 	}
 
 	roomId := "[{\"DORM_ID\":\"" + req.RoomName + "\"}]"
