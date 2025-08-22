@@ -83,6 +83,8 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		// Wait for navigation
 		page.MustWaitNavigation()
 		page.MustWaitDOMStable()
+
+		rq.cacheCookies(req.RoomName, rq.getCookies())
 	}
 
 	if page.MustInfo().Title != "清水河校区寝室电费充值" {
@@ -104,9 +106,6 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 	if resp.Get("0.code").Str() != "0" {
 		return QueryResponse{}, fmt.Errorf("failed to query room info")
 	}
-
-	cookies := rq.getCookies()
-	rq.cacheCookies(req.RoomName, cookies)
 
 	return QueryResponse{
 		Balance: resp.Get("0.roomInfo.syje").Str(),
