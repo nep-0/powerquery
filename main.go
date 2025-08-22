@@ -37,7 +37,7 @@ func main() {
 		username := c.Query("username")
 		password := c.Query("password")
 		cookies := c.Query("cookies")
-		roomName := c.Query("roomName")
+		roomName := c.Query("room_name")
 
 		req := query.QueryRequest{
 			Username: username,
