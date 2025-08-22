@@ -25,7 +25,6 @@ type QueryRequest struct {
 type QueryResponse struct {
 	Balance string
 	Power   string
-	Cookies string
 }
 
 type RodQueryer struct {
@@ -112,7 +111,6 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 	return QueryResponse{
 		Balance: resp.Get("0.roomInfo.syje").Str(),
 		Power:   resp.Get("0.roomInfo.sydl").Str(),
-		Cookies: cookies,
 	}, nil
 }
 
