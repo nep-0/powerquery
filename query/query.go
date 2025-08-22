@@ -3,7 +3,9 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+	"powerquery/db"
 	"sync"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -27,13 +29,15 @@ type QueryResponse struct {
 }
 
 type RodQueryer struct {
+	cache   db.Cache
 	browser *rod.Browser
 	mu      sync.Mutex
 }
 
-func NewRodQueryer(url string) (*RodQueryer, error) {
+func NewRodQueryer(cache db.Cache, url string) (*RodQueryer, error) {
 	browser := rod.New().ControlURL(url).MustConnect()
 	return &RodQueryer{
+		cache:   cache,
 		browser: browser,
 		mu:      sync.Mutex{},
 	}, nil
@@ -42,6 +46,12 @@ func NewRodQueryer(url string) (*RodQueryer, error) {
 func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 	rq.mu.Lock()
 	defer rq.mu.Unlock()
+
+	// check for cached cookies
+	cachedCookies, err := rq.getCachedCookies(req.RoomName)
+	if err == nil && cachedCookies != "" {
+		req.Cookies = cachedCookies
+	}
 
 	if req.Username == "" || req.Password == "" {
 		if req.Cookies == "" {
@@ -73,9 +83,9 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 
 		// Wait for navigation
 		page.MustWaitNavigation()
+		page.MustWaitDOMStable()
 	}
 
-	page.MustWaitDOMStable()
 	if page.MustInfo().Title != "清水河校区寝室电费充值" {
 		page.MustScreenshot("debug.png")
 		return QueryResponse{}, fmt.Errorf("failed to log in or navigate to the correct page: %s", page.MustInfo().Title)
@@ -96,10 +106,13 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		return QueryResponse{}, fmt.Errorf("failed to query room info")
 	}
 
+	cookies := rq.getCookies()
+	rq.cacheCookies(req.RoomName, cookies)
+
 	return QueryResponse{
 		Balance: resp.Get("0.roomInfo.syje").Str(),
 		Power:   resp.Get("0.roomInfo.sydl").Str(),
-		Cookies: rq.getCookies(),
+		Cookies: cookies,
 	}, nil
 }
 
@@ -113,4 +126,22 @@ func (rq *RodQueryer) setCookies(cookies string) {
 	var networkCookies []*proto.NetworkCookie
 	json.Unmarshal([]byte(cookies), &networkCookies)
 	rq.browser.MustSetCookies(networkCookies...)
+}
+
+func (rq *RodQueryer) cacheCookies(roomName, cookies string) error {
+	if roomName == "" || cookies == "" {
+		return fmt.Errorf("room name and cookies cannot be empty")
+	}
+	return rq.cache.Set(roomName, []byte(cookies), time.Hour*24*6) // 6 days
+}
+
+func (rq *RodQueryer) getCachedCookies(roomName string) (string, error) {
+	if roomName == "" {
+		return "", fmt.Errorf("room name cannot be empty")
+	}
+	cookies, err := rq.cache.Get(roomName)
+	if err != nil {
+		return "", err
+	}
+	return string(cookies), nil
 }

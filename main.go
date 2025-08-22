@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"powerquery/db"
 	"powerquery/query"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +10,8 @@ import (
 )
 
 type Config struct {
-	RodUrl string `mapstructure:"rod_url"`
+	RodUrl   string `mapstructure:"rod_url"`
+	Database string `mapstructure:"database"`
 }
 
 func main() {
@@ -20,7 +22,12 @@ func main() {
 		panic(err)
 	}
 
-	queryer, err := query.NewRodQueryer(viper.GetString("rod_url"))
+	cache, err := db.NewBadgerCache(viper.GetString("database"))
+	if err != nil {
+		panic(err)
+	}
+
+	queryer, err := query.NewRodQueryer(cache, viper.GetString("rod_url"))
 	if err != nil {
 		panic(err)
 	}
