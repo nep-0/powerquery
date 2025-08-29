@@ -3,6 +3,7 @@ package query
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"powerquery/db"
 	"sync"
 	"time"
@@ -49,7 +50,10 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 	// check for cached cookies
 	cachedCookies, err := rq.getCachedCookies(req.RoomName)
 	if err == nil && cachedCookies != "" {
+		slog.Info("Using cached cookies", "room", req.RoomName)
 		req.Cookies = cachedCookies
+	} else {
+		slog.Warn("No cached cookies found", "room", req.RoomName)
 	}
 
 	if req.Username == "" || req.Password == "" {
@@ -62,15 +66,16 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		return QueryResponse{}, fmt.Errorf("missing room name")
 	}
 
-	if req.Cookies != "" {
-		rq.setCookies(req.Cookies)
-	}
+	// always set cookies
+	rq.setCookies(req.Cookies)
 
 	page := rq.browser.MustPage("https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record")
 	defer page.Close()
+
 	page.MustWaitDOMStable()
 
 	if page.MustInfo().Title == "Unified identity authentication platform" {
+		slog.Info("Logging in with username and password")
 		// username
 		page.MustElement("#loginViewDiv > div:nth-child(1) > form:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > input:nth-child(3)").MustInput(req.Username)
 		// password
@@ -84,7 +89,10 @@ func (rq *RodQueryer) DoQuery(req QueryRequest) (QueryResponse, error) {
 		page.MustWaitNavigation()
 		page.MustWaitDOMStable()
 
-		rq.cacheCookies(req.RoomName, rq.getCookies())
+		err := rq.cacheCookies(req.RoomName, rq.getCookies())
+		if err != nil {
+			slog.Warn("Failed to cache cookies", "room", req.RoomName, "error", err)
+		}
 	}
 
 	if page.MustInfo().Title != "清水河校区寝室电费充值" {
